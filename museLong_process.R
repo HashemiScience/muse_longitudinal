@@ -16,7 +16,8 @@ subjdets <- read.csv(paste0(datapath,file_subjdetails))
 head(subjdets)
 
 meditate_psd = tibble(session_id = NA, channel = NA, epoch = NA, power = NA, freq = NA)
-ii=0
+meditate_psd = meditate_psd[-1,]
+
 for(curfile in files_psd){
   # Give the input file name to the function.
   raw_psd <- fromJSON(file = paste0(datapath, curfile))
@@ -32,7 +33,7 @@ for(curfile in files_psd){
       # Convert JSON file to a data frame.
       psd_num <- as.numeric(raw_psd$psds_meditation[[ss]][[cc]])
       
-      curmat <- tibble(session_id = substr(curfile,1,32), channel = cc, epoch = ss, power = psd_num, freq = freq_num)
+      curmat <- tibble(session_id = substr(curfile,1,nchar(curfile)-10), channel = cc, epoch = ss, power = psd_num, freq = freq_num)
       
       meditate_psd <- rbind(meditate_psd, curmat)
       
@@ -40,16 +41,21 @@ for(curfile in files_psd){
   }
 }
 
-meditate_psd = meditate_psd[-1,]
+
 
 meditate_psd$channel = as.factor(meditate_psd$channel)
 meditate_psd$epoch = as.factor(meditate_psd$epoch)
 
-merged_df <- merge(meditate_psd, subjdets)
+merged_df <- merge(meditate_psd, subjdets, by="session_id")
+merged_df$freq <- round(merged_df$freq,1)
 
-ggplot(data=merged_df) +
-  geom_line(aes(x=freq, y=power, col=channel), na.rm=T) +
-  facet_wrap(~user_id+session_id) +
+unique(merged_df$session_id)
+unique(merged_df$user_id)
+
+
+ggplot(data=merged_df, aes(x=freq, y=power, col=channel), na.rm=T) +
+  stat_summary_bin(aes(), fun.y=mean, geom="line") +
+  facet_wrap(~user_id+session_timestamp) +
   xlim(c(0,30)) +
   scale_y_log10()
   
