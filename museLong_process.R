@@ -24,11 +24,11 @@ for(curfile in files_psd){
   # raw_eeg <- fromJSON(file = paste0(datapath, files_raw[1]))
   # data_ch1_med <- fromJSON(file = paste0(datapath, files_ch1med[1]))
   
-  for(ss in 1:length(raw_psd$psds_meditation)){
+  for(ss in 1:length(raw_psd$psds_meditation)){ # loop through number of epochs per subj
 
     freq_num <- as.numeric(raw_psd$freqs_meditation)
     
-    for(cc in 1:4){
+    for(cc in 1:4){ # loop through 4 channels
       
       # Convert JSON file to a data frame.
       psd_num <- as.numeric(raw_psd$psds_meditation[[ss]][[cc]])
@@ -42,21 +42,41 @@ for(curfile in files_psd){
 }
 
 
-
+# convert channel an epochs to factors
 meditate_psd$channel = as.factor(meditate_psd$channel)
 meditate_psd$epoch = as.factor(meditate_psd$epoch)
 
+# merge actual PSD with user/session info dataset according to matching "session_id" value
 merged_df <- merge(meditate_psd, subjdets, by="session_id")
-merged_df$freq <- round(merged_df$freq,1)
 
+# the FFT was not percent, off by 0.01 Hz often, so round to nearest 1 decimal
+merged_df$freq <- round(merged_df$freq,1) 
+
+# check that the merge worked
 unique(merged_df$session_id)
-unique(merged_df$user_id)
+unique(meditate_psd$session_id)
+unique(subjdets$session_id)
 
-
+# plot 4 channels per session, average across all epochs per session
 ggplot(data=merged_df, aes(x=freq, y=power, col=channel), na.rm=T) +
   stat_summary_bin(aes(), fun.y=mean, geom="line") +
   facet_wrap(~user_id+session_timestamp) +
   xlim(c(0,30)) +
   scale_y_log10()
   
-dir()
+
+## extract parameters (e.g., alpha amp) to compare across sessions:
+
+# create separate data.frame for each parameter
+alphaAmp <- subset(merged_df, freq>7&freq<13)
+alphaAmp %>% group_by(user_id,session_id,channel,epoch) %>% summarize(alphaAmp = mean(power))
+
+# alternatively, and better, label each freq with band label, then categorize by them
+merged_df$band <- NA
+merged_df[merged_df$freq<30.5,"band"] = "beta"
+merged_df[merged_df$freq<13.5,"band"] = "alpha"
+merged_df[merged_df$freq<8,"band"] = "theta"
+merged_df[merged_df$freq<3,"band"] = "delta"
+
+# calculate band power for each channel, epoch, session
+bandpower_df <- merged_df[merged_df$freq<30.5,] %>% group_by(user_id,session_id,session_timestamp,channel,epoch,band) %>% summarize(power = mean(power))
