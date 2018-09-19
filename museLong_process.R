@@ -18,7 +18,11 @@ head(subjdets)
 meditate_psd = tibble(session_id = NA, channel = NA, epoch = NA, power = NA, freq = NA)
 meditate_psd = meditate_psd[-1,]
 
-for(curfile in files_psd){
+#######
+## To do still: for efficiency when dealing with larger dataset, convert the epoch and channel loops to pipe-lines if possible. Needs some fiddling around.
+######
+for(curfile in files_psd){ # loop per session file
+
   # Give the input file name to the function.
   raw_psd <- fromJSON(file = paste0(datapath, curfile))
   # raw_eeg <- fromJSON(file = paste0(datapath, files_raw[1]))
