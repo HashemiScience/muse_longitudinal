@@ -4,55 +4,127 @@ library(data.table)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
+library(purrr) # required for unlisting fooof to find best peak
 
 # Get a list of filenames (psd only)
 getwd()
-datapath = "~/Documents/MATLAB/muse_longitudinal/sample data/"
+datapath = "~/Documents/MATLAB/muse_longitudinal/sample_data/"
+fooofpath = "~/Documents/MATLAB/muse_longitudinal/fooof_data/"
 files_psd <- dir(datapath, pattern="*psds.json")
 files_raw = dir(datapath, pattern="*raw_data.json")
-files_ch1med <- dir(datapath, pattern="*fg_meditation_ch1.json")
+files_fooofch1med <- dir(fooofpath, pattern="*fg_meditation_ch1.json")
 file_subjdetails <- dir(datapath, pattern="*.csv")
 subjdets <- as_tibble(read.csv(paste0(datapath,file_subjdetails)))
 with(subjdets, tapply(session_id, list(year_of_birth, gender), length))
 
 
-#meditate_psd = tibble(session_id = NA, channel = NA, epoch = NA, power = NA, freq = NA)
-meditate_psd = tibble(session_id = NA, epoch = NA, psd=NA)
-meditate_psd = meditate_psd[-1,]
-
-#######
-## To do still: for efficiency when dealing with larger dataset, convert the epoch and channel loops to pipe-lines if possible. Needs some fiddling around.
 ######
-start_time <- Sys.time()
-for(curfile in files_psd){ # loop per session file
-
-  # Give the input file name to the function.
-  raw_psd <- fromJSON(file = paste0(datapath, curfile))
-  # raw_eeg <- fromJSON(file = paste0(datapath, files_raw[1]))
-  # data_ch1_med <- fromJSON(file = paste0(datapath, files_ch1med[1]))
+loadPSD=0
+if(loadPSD==1){
   
-  for(ee in 1:length(raw_psd$psd_mean_meditation)){ # loop through number of epochs per subj
-
-    #freq_num <- as.numeric(raw_psd$freqs_meditation)
+  #meditate_psd = tibble(session_id = NA, channel = NA, epoch = NA, power = NA, freq = NA)
+  meditate_psd = tibble(session_id = NA, epoch = NA, psd=NA)
+  meditate_psd = meditate_psd[-1,]
+  
+  start_time <- Sys.time()
+  for(curfile in files_psd){ # loop per session file
+  
+    # Give the input file name to the function.
+    raw_psd <- fromJSON(file = paste0(datapath, curfile))
+    # raw_eeg <- fromJSON(file = paste0(datapath, files_raw[1]))
+    # data_ch1_med <- fromJSON(file = paste0(datapath, files_ch1med[1]))
     
-    #for(cc in 1:4){ # loop through 4 channels
+    for(ee in 1:length(raw_psd$psd_mean_meditation)){ # loop through number of epochs per subj
+  
+      #freq_num <- as.numeric(raw_psd$freqs_meditation)
       
-      # Convert JSON file to a data frame.
-      #psd_num <- as.numeric(raw_psd$psd_mean_meditation[[ss]][[cc]])
-      
-      tmp <- data.frame(Reduce(cbind, raw_psd$psd_mean_meditation[[ee]], init=raw_psd$freqs_meditation))
-      names(tmp) <- c("freq","ch1","ch2","ch3","ch4")
-      
-      curmat <- tibble(session_id = substr(curfile,1,nchar(curfile)-10), epoch = ee, psd=list(tmp))
+      #for(cc in 1:4){ # loop through 4 channels
+        
+        # Convert JSON file to a data frame.
+        #psd_num <- as.numeric(raw_psd$psd_mean_meditation[[ss]][[cc]])
+        
+        tmp <- data.frame(Reduce(cbind, raw_psd$psd_mean_meditation[[ee]], init=raw_psd$freqs_meditation))
+        names(tmp) <- c("freq","ch1","ch2","ch3","ch4")
+        
+        curmat <- tibble(session_id = substr(curfile,1,nchar(curfile)-10), epoch = ee, psd=list(tmp))
+        #curmat <- tibble(session_id = substr(curfile,1,nchar(curfile)-10), channel = cc, epoch = ss, power = psd_num, freq = freq_num)
+        
+        meditate_psd <- bind_rows(meditate_psd, curmat)
+        
+    }
+  }
+  end_time <- Sys.time()
+  (total_time = end_time-start_time)
+}
+
+
+######
+loadFOOOF=0
+if(loadFOOOF==1){
+  
+  meditate_fooof = tibble(session_id = NA, 
+                                 bg_int = NA,
+                                 bg_slope = NA,
+                                 pk_freq = NA,
+                                 pk_amp = NA,
+                                 pk_bw = NA,
+                                 r2 = NA,
+                                 err = NA)
+  meditate_fooof = meditate_fooof[-1,]
+  
+  start_time <- Sys.time()
+  for(curfile in files_fooofch1med){ # loop per session file
+    
+    # Give the input file name to the function.
+    curfooof <- fromJSON(file = paste0(fooofpath, curfile))
+    # raw_eeg <- fromJSON(file = paste0(datapath, files_raw[1]))
+    # data_ch1_med <- fromJSON(file = paste0(datapath, files_ch1med[1]))
+    
+      #curfoof
+    
+    curpeaks <- map_df(curfooof$peak_params_, ~as.data.frame(t(.)))
+    names(curpeaks) <- c("freq","amp","bw")
+    pkIX <- which.max(curpeaks[curpeaks$freq<13&curpeaks$freq>7,2])
+
+      curmat <- tibble(session_id = substr(curfile,1,nchar(curfile)-23), 
+                       bg_int=curfooof$background_params_[1],
+                       bg_slope=curfooof$background_params_[2],
+                       pk_freq = curpeaks[pkIX, 1],
+                       pk_amp = curpeaks[pkIX, 2],
+                       pk_bw = curpeaks[pkIX, 3],
+                       r2 = curfooof$r_squared_,
+                       err = curfooof$error_)
       #curmat <- tibble(session_id = substr(curfile,1,nchar(curfile)-10), channel = cc, epoch = ss, power = psd_num, freq = freq_num)
       
-      meditate_psd <- bind_rows(meditate_psd, curmat)
+      meditate_fooof <- bind_rows(meditate_fooof, curmat)
       
   }
+  end_time <- Sys.time()
+  (total_time = end_time-start_time)
+  
+  merged_fooof = inner_join(meditate_fooof, subjdets, by="session_id")
+  setDT(merged_fooof)
+  merged_fooof <- merged_fooof[, sessOrder := rank(session_timestamp), by=.(user_id)]
+  merged_fooof <- as_tibble(merged_fooof)
+  
+  ## clean up the data frame to the following criteria:
+  #- all subjects have at least 25 sessions
+  #- select only first 25 sessions
+  goodSubjs <- unique(merged_fooof[merged_fooof$sessOrder==25,]$user_id)
+  merged_fooof <- merged_fooof[merged_fooof$user_id %in% goodSubjs,]
+  merged_fooof <- merged_fooof[merged_fooof$sessOrder<26,]
+  merged_fooof <- merged_fooof[merged_fooof$gender %in% c("male","female"),]
+  merged_fooof$age <- 2018 - as.integer(merged_fooof$year_of_birth) # add age as of 2018
+  
+  ggplot(data=merged_fooof, aes(x=age, y=pk_freq, col=gender)) +
+    #geom_point(aes(x=age, y=ch1, col=sessOrder), na.rm=T) +
+    #geom_point(data=merged_fooof, aes(x=age, y=pk_freq, col=gender), na.rm=T) +
+    stat_summary_bin(aes(), fun.y=mean, geom="point",binwidth=1,na.rm=T) +
+    stat_smooth(se=TRUE, alpha=0.3, method="lm", formula=y~x) +
+    #facet_wrap(~sessOrder) +
+    #scale_y_log10() +
+    scale_colour_manual(values=c("blue","red"))
 }
-end_time <- Sys.time()
-(total_time = end_time-start_time)
-
 
 
 # convert channel an epochs to factors
