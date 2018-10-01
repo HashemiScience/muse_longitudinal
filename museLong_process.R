@@ -59,7 +59,7 @@ if(loadPSD==1){
 
 
 ######
-loadFOOOF=0
+loadFOOOF=1
 if(loadFOOOF==1){
   
   meditate_fooof = tibble(session_id = NA, 
@@ -115,15 +115,19 @@ if(loadFOOOF==1){
   merged_fooof <- merged_fooof[merged_fooof$sessOrder<26,]
   merged_fooof <- merged_fooof[merged_fooof$gender %in% c("male","female"),]
   merged_fooof$age <- 2018 - as.integer(merged_fooof$year_of_birth) # add age as of 2018
+  merged_fooof <- droplevels.data.frame(merged_fooof)
   
-  ggplot(data=merged_fooof, aes(x=age, y=pk_freq, col=gender)) +
+  #ageFreqs <- melt(with(merged_fooof[merged_fooof$sessOrder==1,], tapply(user_id,list(age,gender),length)))
+  
+  ggplot(data=merged_fooof, aes(x=age, y=bg_slope, col=gender)) +
     #geom_point(aes(x=age, y=ch1, col=sessOrder), na.rm=T) +
     #geom_point(data=merged_fooof, aes(x=age, y=pk_freq, col=gender), na.rm=T) +
     stat_summary_bin(aes(), fun.y=mean, geom="point",binwidth=1,na.rm=T) +
-    stat_smooth(se=TRUE, alpha=0.3, method="lm", formula=y~x) +
+    stat_smooth(se=TRUE, alpha=0.3, method="loess", formula=y~x) +
     #facet_wrap(~sessOrder) +
     #scale_y_log10() +
     scale_colour_manual(values=c("blue","red"))
+  
 }
 
 
@@ -167,7 +171,7 @@ merged_df <- unnest(merged_df)
 # the FFT was not percent, off by 0.01 Hz often, so round to nearest 1 decimal
 merged_df$freq <- round(merged_df$freq,1)
 
-merged_df$ageGroup <- cut(merged_df$age,c(18,30,40,50,60,70,80,90),right=FALSE)
+merged_df$ageGroup <- cut(merged_df$age,c(20,25,30,35,40,45,50,55,60,65,70,75,80),right=FALSE)
 
 #################################
 ## workspace saved at this point on Sept. 28, 2018
