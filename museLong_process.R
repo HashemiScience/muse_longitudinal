@@ -8,8 +8,8 @@ library(purrr) # required for unlisting fooof to find best peak
 
 # Get a list of filenames (psd only)
 getwd()
-datapath = "~/Documents/MATLAB/muse_longitudinal/sample_data/"
-fooofpath = "~/Documents/MATLAB/muse_longitudinal/fooof_data/"
+datapath = "~/Documents/MATLAB/muse_longitudinal/psd_data_oct1/"
+fooofpath = "~/Documents/MATLAB/muse_longitudinal/fooof_data_ch1/"
 files_psd <- dir(datapath, pattern="*psds.json")
 files_raw = dir(datapath, pattern="*raw_data.json")
 files_fooofch1med <- dir(fooofpath, pattern="*fg_meditation_ch1.json")
@@ -19,7 +19,7 @@ with(subjdets, tapply(session_id, list(year_of_birth, gender), length))
 
 
 ######
-loadPSD=0
+loadPSD=1
 if(loadPSD==1){
   
   #meditate_psd = tibble(session_id = NA, channel = NA, epoch = NA, power = NA, freq = NA)
@@ -84,7 +84,7 @@ if(loadFOOOF==1){
     
     curpeaks <- map_df(curfooof$peak_params_, ~as.data.frame(t(.)))
     names(curpeaks) <- c("freq","amp","bw")
-    pkIX <- which.max(curpeaks[curpeaks$freq<13&curpeaks$freq>7,2])
+    pkIX <- which.max(curpeaks[curpeaks$freq<14&curpeaks$freq>7,2])
 
       curmat <- tibble(session_id = substr(curfile,1,nchar(curfile)-23), 
                        bg_int=curfooof$background_params_[1],
@@ -119,12 +119,12 @@ if(loadFOOOF==1){
   
   #ageFreqs <- melt(with(merged_fooof[merged_fooof$sessOrder==1,], tapply(user_id,list(age,gender),length)))
   
-  ggplot(data=merged_fooof, aes(x=age, y=bg_slope, col=gender)) +
+  ggplot(data=merged_fooof, aes(x=age, y=pk_freq, col=gender)) +
     #geom_point(aes(x=age, y=ch1, col=sessOrder), na.rm=T) +
     #geom_point(data=merged_fooof, aes(x=age, y=pk_freq, col=gender), na.rm=T) +
     stat_summary_bin(aes(), fun.y=mean, geom="point",binwidth=1,na.rm=T) +
-    stat_smooth(se=TRUE, alpha=0.3, method="loess", formula=y~x) +
-    #facet_wrap(~sessOrder) +
+    stat_smooth(se=TRUE, alpha=0.3, method="lm", formula=y~poly(x,2)) +
+    facet_wrap(~sessOrder) +
     #scale_y_log10() +
     scale_colour_manual(values=c("blue","red"))
   
@@ -165,13 +165,39 @@ merged_df <- droplevels.data.frame(merged_df)
 
 (ageFreqs <- with(merged_df[merged_df$epoch==1&merged_df$sessOrder==1,], tapply(user_id,list(age,gender),length)))
 
+merged_df$ageGroup <- cut(merged_df$age,c(20,30,40,50,60,70,80),right=FALSE)
+
+# merged_df$PAF = list(data.frame(NA,NA,NA,NA))
+# merged_df$PAA = list(data.frame(NA,NA,NA,NA))
+# # find peak alpha freq before unnesting
+# start_time <- Sys.time()
+# for(abc in 1:dim(merged_df)[1]){
+#   tmp <- apply(subset(data.frame(merged_df[abc,3][[1]]), freq>6.5&freq<13.5)[,2:5], 2, findpeaks, nups=1, ndowns=1, npeaks=1, sortstr=FALSE)
+#     #findpeaks(mergedata[abc,c("7","8","9","10","11","12","13","14")]),nups=1, ndowns=1, npeaks=1, sortstr=FALSE)
+#   if(any(unlist(lapply(tmp,is.null)))){
+#     tmp[which(unlist(lapply(tmp,is.null)))] = list(array(NA, dim=c(1,4)))
+#     tmp = data.frame(cbind(unlist(tmp[1]), unlist(tmp[2]), unlist(tmp[3]), unlist(tmp[4])))
+#     names(tmp) = c("ch1","ch2","ch3","ch4")
+#   }
+#   peakAmps = tmp[1,]
+#   peakFreqs = tmp[2,]
+#   peakFreqs = subset(data.frame(merged_df[abc,3][[1]]), freq>6.5&freq<13.5)[0,1]
+#   names(peakFreqs) <- c("ch1","ch2","ch3","ch4")
+#   #peakFreqs[which(is.na(peakFreqs))]=0
+#   merged_df[abc,]$PAF <- list(peakFreqs)
+#   merged_df[abc,]$PAA <- list(peakAmps)
+#   
+# }
+# end_time <- Sys.time()
+# (total_time = end_time-start_time)
+
 # unnest the data.frames/lists containing the actual data
 merged_df <- unnest(merged_df)
 
 # the FFT was not percent, off by 0.01 Hz often, so round to nearest 1 decimal
 merged_df$freq <- round(merged_df$freq,1)
 
-merged_df$ageGroup <- cut(merged_df$age,c(20,25,30,35,40,45,50,55,60,65,70,75,80),right=FALSE)
+
 
 #################################
 ## workspace saved at this point on Sept. 28, 2018
@@ -193,16 +219,16 @@ ggplot(data=subset(merged_df, freq==3&sessOrder==1&epoch==1), aes(x=age, fill=ge
 RdBuCols <- c('#b2182b','#d6604d','#f4a582','#fddbc7','#f7f7f7','#d1e5f0','#92c5de','#4393c3','#2166ac')
 cc <- colorRampPalette(RdBuCols)(length(levels(merged_df$sessOrder)))
 
-psd_ageSessionMeans <- merged_df %>% group_by(ageGroup,sessOrder,freq) %>% summarize(ch1 = mean(ch1), ch2=mean(ch2), ch3=mean(ch3), ch4=mean(ch4))
+psd_ageSessionMeans <- merged_df %>% group_by(age_group,sessOrder,freq) %>% summarize(ch1 = mean(ch1), ch2=mean(ch2), ch3=mean(ch3), ch4=mean(ch4))
 # plot power per 1 channel at each session (colour), separated for each age group (facet)
 ggplot(data=psd_ageSessionMeans, aes(x=freq, y=ch1,col=sessOrder,group=sessOrder), na.rm=T) +
   #geom_line(aes(), alpha=0.4) +
-  stat_summary_bin(aes(), fun.y=mean, geom="line",binwidth=0.2,na.rm=T) +
+  stat_summary(aes(), fun.y=mean, geom="line",na.rm=T) +
   facet_wrap(~ageGroup, nrow=2) +
   xlim(c(0,30)) +
   scale_y_log10() +
   scale_colour_gradient2(low="#B2182B", mid="#F7F7F7", high="#2166AC",midpoint=13) +
-  theme_bw() +
+  #theme_bw() +
   theme(text = element_text(size=15)) +
   ggsave("FIG_psd_ageSessionInteraction.png", width =12, height=5)
 
@@ -212,13 +238,13 @@ cc <- colorRampPalette(RdBuCols)(length(levels(merged_df$ageGroup)))
 psd_ageMeans <- merged_df %>% group_by(ageGroup,freq) %>% summarize(ch1 = mean(ch1), ch2=mean(ch2), ch3=mean(ch3), ch4=mean(ch4))
 # plot power per 1 channel at each age group (colour) averaged across all sessions
 ggplot(data=psd_ageMeans, aes(x=freq, y=ch1,col=ageGroup,group=ageGroup), na.rm=T) +
-  stat_summary_bin(aes(), fun.y=mean, geom="line",binwidth=0.2,na.rm=T) +
+  stat_summary(aes(), fun.y=mean, geom="line",na.rm=T) +
   #facet_wrap(~ageGroup) +
   xlim(c(0,30)) +
   scale_y_log10() +
   scale_colour_manual(values = cc)+
-  theme_bw() +
-  theme(text = element_text(size=15)) +
+  #theme_bw() +
+  theme(text = element_text(size=30)) +
   ggsave("FIG_psd_ageEffect.png")
 #  scale_colour_gradient2(low="#B2182B", mid="#F7F7F7", high="#2166AC",midpoint=13)
 
@@ -227,13 +253,13 @@ psd_sessMeans <- merged_df %>% group_by(sessOrder,freq) %>% summarize(ch1 = mean
 # plot power per 1 channel at each age group (colour) averaged across all sessions
 ggplot(data=psd_sessMeans, aes(x=freq, y=ch1, col=sessOrder, group=sessOrder), na.rm=T) +
   #geom_line(aes(), alpha=0.4) +
-  stat_summary_bin(aes(), fun.y=mean, geom="line",binwidth=0.2,na.rm=T) +
+  stat_summary(aes(), fun.y=mean, geom="line",na.rm=T) +
   #facet_wrap(~ageGroup) +
   xlim(c(0,30)) +
   scale_y_log10() +
   scale_colour_gradient2(low="#B2182B", mid="#F7F7F7", high="#2166AC",midpoint=13) +
-  theme_bw() +
-  theme(text = element_text(size=15)) +
+  #theme_bw() +
+  theme(text = element_text(size=20)) +
   ggsave("FIG_psd_sessionEffect.png")
 
 ## extract parameters (e.g., alpha amp) to compare across sessions:
@@ -252,8 +278,11 @@ merged_df[merged_df$freq<3,"band"] = "delta"
 # calculate band power for each channel, epoch, session
 bandpower_df <- merged_df[merged_df$freq<30.2&xor(merged_df$gender=="male",merged_df$gender=="female"),] %>% group_by(user_id, age, gender, handedness, session_id, sessOrder, band) %>% summarize(ch1 = mean(ch1), ch2 = mean(ch2), ch3 = mean(ch3), ch4 = mean(ch4))
 
+peakAlpha_df <- merged_df[merged_df$freq<13.5&merged_df$freq>6.5&xor(merged_df$gender=="male",merged_df$gender=="female"),] %>% group_by(user_id, age, gender, handedness, session_id, sessOrder, epoch) %>% summarize(PAAch1 = findpeaks(ch1,nups=1, ndowns=1, npeaks=1, sortstr=TRUE)[1], PAFch1 = freq[findpeaks(ch1,nups=1, ndowns=1, npeaks=1, sortstr=TRUE)[2]])
+#PAFch2 = findpeaks(ch2,nups=1, ndowns=1, npeaks=1, sortstr=FALSE)[2], PAFch3 = findpeaks(ch3,nups=1, ndowns=1, npeaks=1, sortstr=FALSE)[2], PAFch4 = findpeaks(ch4,nups=1, ndowns=1, npeaks=1, sortstr=FALSE)[2]
+
 bandpower_means <- bandpower_df %>% group_by(age,gender,band) %>% summarize(ch1 = mean(ch1), ch2 = mean(ch2), ch3 = mean(ch3), ch4 = mean(ch4))
-(ageFreqs <- with(merged_df[merged_df$epoch==1&merged_df$sessOrder==1,], tapply(user_id,list(age,gender),length)))
+#(ageFreqs <- with(merged_df[merged_df$epoch==1&merged_df$sessOrder==1&merged_df$freq==1,], tapply(user_id,list(age,gender),length)))
 ageFreqs <- melt(ageFreqs)
 names(ageFreqs) <- c("age","gender","weight")
 bandpower_means <- inner_join(bandpower_means, ageFreqs)
@@ -261,21 +290,58 @@ bandpower_means <- inner_join(bandpower_means, ageFreqs)
 #summary(aov(ch1 ~ age*gender*sessOrder, data=bandpower_df[bandpower_df$band=="alpha",]))
 
 
+cc <- scales::seq_gradient_pal("blue", "red", "Lab")(seq(0,1,length.out=length(unique(peakAlpha_df$sessOrder))))
+cc <- scales::seq_gradient_pal("blue", "red", "Lab")(seq(0,1,length.out=length(unique(peakAlpha_df$gender))))
+
+ggplot(data=peakAlpha_df) +
+  #geom_point(aes(x=age, y=PAFch1, col=gender), na.rm=T) +
+  stat_summary(aes(x=sessOrder, y=PAFch1, colour=gender), fun.y=mean, geom="point",na.rm=T) +
+  stat_smooth(aes(x=sessOrder, y=PAFch1, colour=gender), se=TRUE, alpha=0.3, method="lm", formula=y~poly(x,2)) +
+  #facet_wrap(~gender) +
+  #scale_y_log10() +
+  scale_colour_manual(values=cc) +
+  theme(text = element_text(size=30)) +
+  ggsave("FIG_PAF_sessionEffect.png")
+
+ggplot(data=peakAlpha_df) +
+  #geom_point(aes(x=age, y=PAFch1, col=gender), na.rm=T) +
+  stat_summary(aes(x=age, y=PAFch1, colour=gender), fun.y=mean, geom="point",na.rm=T) +
+  stat_smooth(aes(x=age, y=PAFch1, colour=gender), se=TRUE, alpha=0.3, method="lm", formula=y~poly(x,2)) +
+  #facet_wrap(~gender) +
+  #scale_y_log10() +
+  scale_colour_manual(values=cc) +
+  theme(text = element_text(size=30)) +
+  ggsave("FIG_PAF_ageEffect.png")
+
+ggplot(data=peakAlpha_df) +
+  #geom_point(aes(x=age, y=PAFch1, col=gender), na.rm=T) +
+  stat_summary(aes(x=age, y=PAFch1, colour=sessOrder, group=as.factor(sessOrder)), fun.y=mean, geom="point",na.rm=T) +
+  stat_smooth(aes(x=age, y=PAFch1, colour=sessOrder, group=as.factor(sessOrder)), se=FALSE, alpha=0.3, method="lm", formula=y~poly(x,2)) +
+  #facet_wrap(~sessOrder) +
+  #scale_y_log10() +
+  scale_colour_gradient2(low="#B2182B", mid="#F7F7F7", high="#2166AC",midpoint=13) +
+  #scale_colour_manual(values=cc) +
+  theme(text = element_text(size=22)) +
+  ggsave("FIG_PAF_ageSessionEffect.png")
+
+
+summary(lm(PAFch1 ~ age*gender, data=peakAlpha_df))
+
 cc <- scales::seq_gradient_pal("blue", "red", "Lab")(seq(0,1,length.out=length(levels(bandpower_df$sessOrder))))
 #cc <- scales::seq_gradient_pal("blue", "red", "Lab")(seq(0,1,length.out=length(levels(bandpower_df$epoch))))
 
 ggplot(data=bandpower_df) +
   #geom_point(aes(x=age, y=ch1, col=sessOrder), na.rm=T) +
   #stat_summary_bin(aes(x=age, y=ch1, col=sessOrder), fun.y=mean, geom="point",binwidth=1,na.rm=T) +
-  stat_smooth(aes(x=age, y=ch2, col=epoch), se=FALSE, alpha=0.3, method="lm", formula=y~poly(x,2)) +
-  facet_wrap(~sessOrder) +
+  stat_smooth(aes(x=age, y=ch2, colour=gender), se=FALSE, alpha=0.3, method="lm", formula=y~poly(x,2)) +
+  facet_wrap(~band) +
   scale_y_log10() +
   scale_colour_manual(values=cc)
 
 ggplot() +
   #geom_point(aes(x=age, y=ch1, col=sessOrder), na.rm=T) +
   geom_point(data=bandpower_means[bandpower_means$band=="alpha",], aes(x=age, y=ch1, size=weight, col=gender), na.rm=T) +
-  stat_smooth(data=bandpower_df[bandpower_df$band=="alpha",], aes(x=age, y=ch1, col=gender), se=TRUE, alpha=0.3, method="lm", formula=y~x) +
+  stat_smooth(data=bandpower_means[bandpower_means$band=="alpha",], aes(x=age, y=ch1, col=gender), se=TRUE, alpha=0.3, method="lm", formula=y~x) +
   #facet_wrap(~sessOrder) +
   scale_y_log10() +
   scale_colour_manual(values=c("blue","red"))
