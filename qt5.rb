@@ -66,7 +66,6 @@ class Qt5 < Formula
   depends_on :macos => :mountain_lion
 
   depends_on "dbus" => :optional
-  depends_on :mysql => :optional
   depends_on :postgresql => :optional
   depends_on :xcode => :build
 
