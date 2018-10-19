@@ -66,6 +66,7 @@ class Qt5 < Formula
   depends_on :macos => :mountain_lion
 
   depends_on "dbus" => :optional
+# depends_on :mysql => :optional
   depends_on :postgresql => :optional
   depends_on :xcode => :build
 
@@ -94,7 +95,7 @@ class Qt5 < Formula
 
     args << "-nomake" << "examples" if build.without? "examples"
 
-    args << "-plugin-sql-mysql" if build.with? "mysql"
+# args << "-plugin-sql-mysql" if build.with? "mysql"
     args << "-plugin-sql-psql" if build.with? "postgresql"
 
     if build.with? "dbus"
