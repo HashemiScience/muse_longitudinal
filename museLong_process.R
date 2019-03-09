@@ -202,7 +202,7 @@ merged_df$freq <- round(merged_df$freq,1)
 
 
 #################################
-## workspace saved at this point on Sept. 28, 2018
+## workspace saved at this point on Sept. 28, 2018 and Oct. 1, 2018
 #################################
 
 merged_df$gender <- factor(merged_df$gender, levels=c("male","female"))
