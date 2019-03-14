@@ -5,3 +5,7 @@
 loadedData_2018_Sept_28.RData
 *.json
 *.RData
+
+dissemination/
+
+*.zip
