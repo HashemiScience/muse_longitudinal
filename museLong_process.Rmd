@@ -4,9 +4,8 @@ html_notebook:
 toc: yes
 ---
 ```{r }
-
 # install.packages("rjson")
-library(rjson)
+#library(rjson)
 #library(data.table) # does not work for ER's macbook. 
 library(ggplot2)
 #library(plyr)
@@ -16,169 +15,48 @@ library(tidyr)
 #library(pracma) #? what's this for? 
 ```
 
-# Reading in the data. 
+# Reading in meta-data. 
 ```{r set path names; get files names; read metadata, echo = FALSE  }
-
-# Get a list of filenames (psd only)
-datapath = "./data_20180930/"
-
-files_psd <- list.files(datapath, pattern="*psds.json", recursive = TRUE, full.names = TRUE)
-#files_raw = dir(psdpath, pattern="*raw_data.json")
-print(paste('found ', length(files_psd), 'psd files'))
-
-files_fooof_med_ch1 <- list.files(datapath, pattern="*fg_meditation_ch1.json", recursive = TRUE, full.names = TRUE)
-files_fooof_cal_ch1 <- list.files(datapath, pattern="*fg_calibration_ch1.json", recursive = TRUE, full.names = TRUE)
-files_fooof_med_ch4 <- list.files(datapath, pattern="*fg_meditation_ch4.json", recursive = TRUE, full.names = TRUE)
-files_fooof_cal_ch4 <- list.files(datapath, pattern="*fg_calibration_ch4.json", recursive = TRUE, full.names = TRUE)
-
-print(paste('found ', length(files_fooof_med_ch1), 'foof files'))
-print(paste('found ', length(files_fooof_cal_ch1), 'foof files'))
-
+datapath = './data_20180930/'
 file_subjdetails <- list.files(datapath, pattern="*metadata.csv", recursive = TRUE, full.names = TRUE)
 
 subjdets <- as_tibble(read.csv(file_subjdetails))
 print(paste('found ', file_subjdetails, 'metadata file with', dim(subjdets)[1], ' entries'))
 
-with(subjdets, tapply(session_id, list(year_of_birth, gender), length))/25
+#with(subjdets, tapply(session_id, list(age_group, gender), length))/25
 
 ```
 
-## reading in PSD
+## reading in PSD and merging with subject details. 
 Each _psds.json file contains data from one session - calibration time and meditation
 
-PSD extracted from 120s to 300s (i.e. 2 - 5 min) of each meditation session (and all the time for calibration??)
-in 5 second windows, with 50% overlap, averaging 30 windows to get one PSD. 
-
+PSD extracted 
+    WIN_LEN = 5  # seconds
+    STEP = 2 # seconds
+    AVG_NUM = 14 # psds to average prior to FOOOF extraction
+    fmin, fmax = 2, 80  # look at PSD between 2 and 80 Hz
+    PSD_TIMES = [120, 300] # times during meditation to extract PSD, 2 - 5min
+    fooof_settings = {'peak_width_limits' : [1, 6],
+                      'max_n_peaks' : 6,
+                      'min_peak_amplitude' : 0.1,
+                      'peak_threshold' : 1.5,
+                      'background_mode' : 'fixed'}
+                      
 + freqs_calibration: 389 frequency bins, ranging 2.2 - 80 Hz. 
 + psd_num_calibration: number of PSDs that were averaged in to give mean/sd 
 + psd_mean_calibration:  mean power at each freq averaged across the calibration session length 
-+ psd_std_calibration: st dev power at each frequency across session length
-+ psd_max_calibration: max power estimate -- dont really need
-
-same for meditation. 
-
-```{r load psd files, eval = FALSE}
-# moved this into readPSDfiles.R
-all_psd_med_ch1 = NULL
-all_psd_med_ch2 = NULL
-all_psd_med_ch3 = NULL
-all_psd_med_ch4 = NULL
-all_psd_cal_ch1 = NULL
-all_psd_cal_ch2 = NULL
-all_psd_cal_ch3 = NULL
-all_psd_cal_ch4 = NULL
-
-start_time <- Sys.time()
-for(ii in 1:length(files_psd)){ # loop per session file 
-  # Give the input file name to the function.
-  curfile = files_psd[ii]
-  fname = strsplit(curfile, '/')
-  session_id = substr(fname[[1]][length(fname[[1]])],1,nchar(fname[[1]][5])-10)
-  
-  print(paste0('loading file ',ii, ' of ', length(files_psd), ' : ', curfile))
-  raw_psd <- fromJSON(file =curfile)
-  
-  # read the meditation data in table, separate for each channel. 
-  for(ee in 1:length(raw_psd$psd_mean_meditation)){ # loop through number of epochs per subj
-    psd_med_ch1 =tibble(session_id = session_id, 
-                        channel = 1,
-                        epoch = ee,
-                        numPs = raw_psd$psd_num_calibration,
-                        freq = raw_psd$freqs_meditation,
-                        numPs = raw_psd$psd_num_meditation, 
-                        meanP = raw_psd$psd_mean_meditation[[ee]][[1]],
-                        stdP = raw_psd$psd_std_meditation[[ee]][[1]])
-    
-    
-    psd_med_ch2 =tibble(session_id = session_id, 
-                        channel = 1,
-                        epoch = ee,
-                        numPs = raw_psd$psd_num_calibration,
-                        freq = raw_psd$freqs_meditation,
-                        meanP = raw_psd$psd_mean_meditation[[ee]][[2]],
-                        stdP = raw_psd$psd_std_meditation[[ee]][[2]],
-                        maxP = raw_psd$psd_max_meditation[[ee]][[2]])
-    psd_med_ch3 =tibble(session_id = session_id, 
-                        channel = 3,
-                        epoch = ee,
-                        numPs = raw_psd$psd_num_calibration,
-                        freq = raw_psd$freqs_meditation,
-                        meanP = raw_psd$psd_mean_meditation[[ee]][[3]],
-                        stdP = raw_psd$psd_std_meditation[[ee]][[3]],
-                        maxP = raw_psd$psd_max_meditation[[ee]][[3]])
-    psd_med_ch4 =tibble(session_id = session_id, 
-                        channel = 4,
-                        epoch = ee,
-                        numPs = raw_psd$psd_num_calibration,
-                        freq = raw_psd$freqs_meditation,
-                        meanP = raw_psd$psd_mean_meditation[[ee]][[4]],
-                        stdP = raw_psd$psd_std_meditation[[ee]][[4]],
-                        maxP = raw_psd$psd_max_meditation[[ee]][[4]])
-    
-    all_psd_med_ch1 = bind_rows(all_psd_med_ch1,psd_med_ch1, .id = ) # append the rows. 
-    all_psd_med_ch2 = bind_rows(all_psd_med_ch2,psd_med_ch2) # append the rows. 
-    all_psd_med_ch3 = bind_rows(all_psd_med_ch3,psd_med_ch3) # append the rows. 
-    all_psd_med_ch4 = bind_rows(all_psd_med_ch4,psd_med_ch4) # append the rows. 
-  }
-  save(file = 'spectral_20180930_psd_med.Rdata', list = ls(pattern = 'all_psd_med_*'))
-  
-  # read the calibration data in tables, separate for each channel. 
-  for(ee in 1:length(raw_psd$psd_mean_calibration)){ # loop through number of epochs per subj
-    
-    psd_cal_ch1 =tibble(session_id = session_id, 
-                        channel = 1,
-                        epoch = ee,
-                        numPs = raw_psd$psd_num_calibration,
-                        freq = raw_psd$freqs_calibration[[ee]],
-                        meanP = raw_psd$psd_mean_calibration[[ee]][[1]],
-                        stdP = raw_psd$psd_std_calibration[[ee]][[1]],
-                        maxP = raw_psd$psd_max_calibration[[ee]][[1]])
-    
-    psd_cal_ch2 =tibble(session_id = session_id, 
-                        channel = 2,
-                        epoch = ee,
-                        numPs = raw_psd$psd_num_calibration,
-                        freq = raw_psd$freqs_calibration[[ee]],
-                        meanP = raw_psd$psd_mean_calibration[[ee]][[2]],
-                        stdP = raw_psd$psd_std_calibration[[ee]][[2]],
-                        maxP = raw_psd$psd_max_calibration[[ee]][[2]])
-    
-    psd_cal_ch3 =tibble(session_id = session_id, 
-                        channel = 3,
-                        epoch = ee,
-                        numPs = raw_psd$psd_num_calibration,
-                        freq = raw_psd$freqs_calibration[[ee]],
-                        meanP = raw_psd$psd_mean_calibration[[ee]][[3]],
-                        stdP = raw_psd$psd_std_calibration[[ee]][[3]],
-                        maxP = raw_psd$psd_max_calibration[[ee]][[3]])
-    
-    psd_cal_ch4 =tibble(session_id = session_id, 
-                        channel = 4,
-                        epoch = ee,
-                        numPs = raw_psd$psd_num_calibration,
-                        freq = raw_psd$freqs_calibration[[ee]],
-                        meanP = raw_psd$psd_mean_calibration[[ee]][[4]],
-                        stdP = raw_psd$psd_std_calibration[[ee]][[4]],
-                        maxP = raw_psd$psd_max_calibration[[ee]][[4]])
-    all_psd_cal_ch1 = bind_rows(all_psd_cal_ch1, psd_cal_ch1)
-    all_psd_cal_ch2 = bind_rows(all_psd_cal_ch2, psd_cal_ch2)
-    all_psd_cal_ch3 = bind_rows(all_psd_cal_ch3, psd_cal_ch3)
-    all_psd_cal_ch4 = bind_rows(all_psd_cal_ch4, psd_cal_ch4)
-  }
-  save(file = 'spectral_20180930_psd_cal.Rdata', list = ls(pattern = 'all_psd_cal_*'))
-  
-} # end session file loop. 
-end_time <- Sys.time()
-(total_time = end_time-start_time)
++ psd_std_calibration: st dev power at each frequency within an 'epoch'
++ psd_max_calibration: max power among the 14. 
 
 
+```{r load psd Rdata files, eval = FALSE}
+load('./data_20180930/rdata/psd_cal_ch1_part1to2a.Rdata')
+load('./data_20180930/rdata/psd_cal_ch4_part1to2a.Rdata')
 ```
 
-# read in the FOOOF data. 
+# read in the FOOOF data and merging with subject details
 - Was fit using "fixed" mode
-- 
-```{r loading FOOOF data, echo = FALSE}
-fooofdats = readFOOOFfiles(fooofpath)
+```{r loading FOOOF Rdata, echo = FALSE}
 
 ```
 
@@ -187,7 +65,7 @@ merged_fooof = inner_join(meditate_fooof, subjdets, by="session_id")
 setDT(merged_fooof)
 merged_fooof <- merged_fooof[, sessOrder := rank(session_timestamp), by=.(user_id)]
 merged_fooof <- as_tibble(merged_fooof)
-
+ 
 ## clean up the data frame to the following criteria:
 #- all subjects have at least 25 sessions
 #- select only first 25 sessions
@@ -209,7 +87,7 @@ ggplot(data=merged_fooof, aes(x=age, y=pk_freq, col=gender)) +
   #scale_y_log10() +
   scale_colour_manual(values=c("blue","red"))
 
-}
+
 ```
 
 ```{r}
