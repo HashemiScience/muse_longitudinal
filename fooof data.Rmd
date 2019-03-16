@@ -1,0 +1,47 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+What do the peak frequencies look like? 
+
+```{r}
+library(ggplot2)
+library(pracma)
+
+someSubj =  unique(clean_fooof_cal_ch1$user_id)[rand(5,1)*450]
+       
+ggplot(subset(clean_fooof_cal_ch1, user_id%in% someSubj & sessOrder == 1), 
+       aes(x = pk_freq, y = pk_amp, col = pk_bw, group = sessOrder))+
+              geom_point(pch = 19)+coord_cartesian(xlim = c(2, 20))+facet_wrap(~age)+
+  scale_colour_distiller(palette = "YlGnBu")+
+  theme_bw()+
+  geom_point(data = subset(clean_fooof_med_ch1, user_id%in% someSubj & sessOrder == 1), 
+       aes(x = pk_freq, y = pk_amp, col = pk_bw, group = sessOrder), pch = 21)+coord_cartesian(xlim = c(2, 20))+facet_wrap(~age)+
+  scale_colour_distiller(palette = "YlGnBu")+
+  theme_bw()
+
+
+ggplot(subset(clean_fooof_cal_ch1, user_id%in% unique(clean_fooof_cal_ch1$user_id)[rand(5,1)*450]), 
+       aes(x = pk_freq, y = pk_amp, col = sessOrder, group = sessOrder))+
+              geom_point(pch = 21)+coord_cartesian(xlim = c(2, 20))+facet_wrap(~age)+
+  scale_colour_distiller(palette = "YlGnBu")+
+  theme_bw()
+
+
+ggplot(subset(clean_fooof_cal_ch1, user_id%in% unique(clean_fooof_cal_ch1$user_id)[rand(5,1)*450]), 
+       aes(x = pk_freq, y = pk_amp, col = sessOrder, group = sessOrder))+
+        geom_point(pch = 21)+coord_cartesian(xlim = c(2, 20))+facet_wrap(~user_id)
+
+
+ggplot(subset(clean_fooof_med_ch1, user_id%in% unique(clean_fooof_cal_ch1$user_id)[rand(100,1)*450]), 
+       aes(x = pk_freq, y = pk_amp, col = sessOrder, group = sessOrder))+
+        stat_summary(fun.y = mean, geom = "line")+coord_cartesian(xlim = c(2, 20))
+
+```
+
+                     

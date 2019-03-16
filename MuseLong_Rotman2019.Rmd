@@ -1,0 +1,82 @@
+---
+title: "MuseLongitudinal plots"
+author: "eugenie roudaia"
+date: "March 15, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r load packages}
+library(ggplot2)
+library(dplyr)
+library(pracma)
+```
+
+## Loading clean metadata and PSD of calibration and meditation
+
+```{r load data}
+load("./data_20180930/cleanSubjMetadata.Rdata")
+load("./data_20180930/clean_psd_cal_ch1.Rdata")
+load("./data_20180930/clean_psd_med_ch1.Rdata")
+load("./data_20180930/clean_fooof_cal_ch1.Rdata")
+load("./data_20180930/clean_fooof_cal_ch1.Rdata")
+```
+
+# plot some representatite individual subjects
+
+```{r chan, echo=FALSE}
+
+levels(cleanSubj.df$age_group)
+male25 = subset(cleanSubj.df, age_group==levels(cleanSubj.df$age_group)[1] &
+                  gender == 'male')$user_id[rand(n = 1,1)*20]
+female25 = subset(cleanSubj.df,age_group== levels(cleanSubj.df$age_group)[1] &
+                    gender == 'female')$user_id[rand(n = 1,1)*20]
+male45 = subset(cleanSubj.df, age_group==levels(cleanSubj.df$age_group)[5] &
+                gender == 'male')$user_id[rand(n = 1,1)*20]
+female45 = subset(cleanSubj.df,age_group== levels(cleanSubj.df$age_group)[5] &
+                    gender == 'female')$user_id[rand(n = 1,1)*20]
+male65 = subset(cleanSubj.df, age_group==levels(cleanSubj.df$age_group)[9] &
+                  gender == 'male')$user_id[rand(n = 1,1)*20]
+female65 = subset(cleanSubj.df,age_group== levels(cleanSubj.df$age_group)[9] &
+                    gender == 'female')$user_id[rand(n = 1,1)*20]
+
+subset(clean_psd_med_ch1, user_id %in%male25 & sessOrder<10)
+
+ggplot(subset(clean_psd_med_ch1, user_id %in%male25), aes(y  = freq, x =sessOrder , z = meanPlog10))+
+  stat_summary_2d(inherit.aes = TRUE)+
+coord_cartesian(ylim =c(2,20 ))+scale_color_brewer(type = "seq", palette = "PuRd")
+
+clean_psd_med_ch1$meanPlog10 = log10(clean_psd_med_ch1$meanP)
+clean_psd_cal_ch1$meanPlog10 = log10(clean_psd_med_ch1$meanP)
+
+ggplot(subset(clean_psd_med_ch1, user_id %in%male25), 
+       aes(x = freq, y =meanPlog10,colour = sessOrder, group = sessOrder))+
+  stat_summary(fun.y = 'mean', geom = "line")+
+  scale_colour_gradient()+
+  coord_cartesian(xlim = c(2, 50))
+
+
+ggplot(subset(clean_psd_cal_ch1, user_id %in%male25), 
+       aes(x = freq, y =meanPlog10,colour = sessOrder, group = sessOrder))+
+  stat_summary(fun.y = 'mean', geom = "line")+
+  scale_colour_gradient()+
+  coord_cartesian(xlim = c(2, 50))
+
+```
+
+need to average across epochs
+
+what's the effect within session? 
+
+- look at raster
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

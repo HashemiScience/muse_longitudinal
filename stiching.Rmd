@@ -1,0 +1,143 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Notebook for stitching.. should write a proper Rscript to run at the end of the import in batches file. 
+
+```{r}
+library(dplyr)
+fileList = list.files(path  = './data_20180930/rdata/batches', full.names = TRUE)
+
+tmpEnv = new.env()
+  
+psd_cal_ch1_part2b = NULL
+psd_cal_ch2_part2b = NULL
+psd_cal_ch3_part2b = NULL
+psd_cal_ch4_part2b = NULL
+
+psd_med_ch1_part2b= NULL
+psd_med_ch2_part2b= NULL
+psd_med_ch3_part2b= NULL
+psd_med_ch4_part2b= NULL
+
+for (curfile in fileList){
+  
+  tmpEnv = new.env()
+  load(file = fileList[1], envir = tmpEnv, verbose = TRUE)
+  
+psd_cal_ch1_part2b = bind_rows(psd_cal_ch1_part2b, tmpEnv$all_psd_cal_ch1)
+psd_cal_ch2_part2b = bind_rows(psd_cal_ch2_part2b, tmpEnv$all_psd_cal_ch2)
+psd_cal_ch3_part2b = bind_rows(psd_cal_ch3_part2b, tmpEnv$all_psd_cal_ch3)
+psd_cal_ch4_part2b = bind_rows(psd_cal_ch4_part2b, tmpEnv$all_psd_cal_ch4)
+
+psd_med_ch1_part2b = bind_rows(psd_med_ch1_part2b, tmpEnv$all_psd_med_ch1)
+psd_med_ch2_part2b = bind_rows(psd_med_ch2_part2b, tmpEnv$all_psd_med_ch2)
+psd_med_ch3_part2b = bind_rows(psd_med_ch3_part2b, tmpEnv$all_psd_med_ch3)
+psd_med_ch4_part2b = bind_rows(psd_med_ch4_part2b, tmpEnv$all_psd_med_ch4)
+
+  
+}
+
+```
+
+```{r saving part 2b}
+save(psd_cal_ch1_part2b, file = './data_20180930/rdata/psd_cal_ch1_part2b.Rdata')
+save(psd_cal_ch2_part2b, file = './data_20180930/rdata/psd_cal_ch2_part2b.Rdata')
+save(psd_cal_ch3_part2b, file = './data_20180930/rdata/psd_cal_ch3_part2b.Rdata')
+save(psd_cal_ch4_part2b, file = './data_20180930/rdata/psd_cal_ch4_part2b.Rdata')
+
+save(psd_med_ch1_part2b, file = './data_20180930/rdata/psd_med_ch1_part2b.Rdata')
+save(psd_med_ch2_part2b, file = './data_20180930/rdata/psd_med_ch2_part2b.Rdata')
+save(psd_med_ch3_part2b, file = './data_20180930/rdata/psd_med_ch3_part2b.Rdata')
+save(psd_med_ch4_part2b, file = './data_20180930/rdata/psd_med_ch4_part2b.Rdata')
+
+
+```
+
+```{r extracting part 2c and 3}
+library(dplyr)
+load("~/Github/muse_longitudinal/data_20180930/rdata/latest_psds2.Rdata")
+load("~/Github/muse_longitudinal/data_20180930/rdata/psds_3.Rdata")
+
+psd_cal_ch1_2cto3 = bind_rows(psds2_5501$psd_cal_ch1, psds_3$psd_cal_ch1)
+psd_cal_ch2_2cto3 = bind_rows(psds2_5501$psd_cal_ch2, psds_3$psd_cal_ch2)
+psd_cal_ch3_2cto3 = bind_rows(psds2_5501$psd_cal_ch3, psds_3$psd_cal_ch3)
+psd_cal_ch4_2cto3 = bind_rows(psds2_5501$psd_cal_c4, psds_3$psd_cal_ch4)
+psd_med_ch1_2cto3 = bind_rows(psds2_5501$psd_med_ch1, psds_3$psd_med_ch1)
+psd_med_ch2_2cto3 = bind_rows(psds2_5501$pdf_med_ch2, psds_3$psd_med_ch2)
+psd_med_ch3_2cto3 = bind_rows(psds2_5501$pdf_med_ch3, psds_3$psd_med_ch3)
+psd_med_ch4_2cto3 = bind_rows(psds2_5501$psd_med_ch4, psds_3$psd_med_ch4)
+
+```
+
+
+```{r load parts 1 and 2b }
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_cal_ch1_part1to2a.Rdata")
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_cal_ch1_part2b.Rdata")
+
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_cal_ch2_part1to2a.Rdata")
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_cal_ch2_part2b.Rdata")
+
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_cal_ch3_part1to2a.Rdata")
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_cal_ch3_part2b.Rdata")
+
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_cal_ch4_part1to2a.Rdata")
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_cal_ch4_part2b.Rdata")
+
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_med_ch1_part1to2a.Rdata")
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_med_ch1_part2b.Rdata")
+
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_med_ch2_part1to2a.Rdata")
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_med_ch2_part2b.Rdata")
+
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_med_ch3_part1to2a.Rdata")
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_med_ch3_part2b.Rdata")
+
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_med_ch4_part1to2a.Rdata")
+load("~/Github/muse_longitudinal/data_20180930/rdata/psd_med_ch4_part2b.Rdata")
+
+```
+
+```{r stitch all together, combine meditate and calibrate, and save by channel}
+psd_cal_ch1 = bind_rows(psd_cal_ch1_part1to2a, psd_cal_ch1_part2b,psd_cal_ch1_2cto3)
+psd_med_ch1 = bind_rows(psd_med_ch1_part1to2a, psd_med_ch1_part2b,psd_med_ch1_2cto3)
+rm(psd_cal_ch1_part1to2a, psd_cal_ch1_part2b,psd_cal_ch1_2cto3,psd_med_ch1_part1to2a, psd_med_ch1_part2b,psd_med_ch1_2cto3)
+
+save(psd_cal_ch1, file = './data_20180930/rdata/psd_cal_ch1.Rdata')
+save(psd_med_ch1, file = './data_20180930/rdata/psd_med_ch1.Rdata')
+
+psd_cal_ch2 = bind_rows(psd_cal_ch2_part1to2a, psd_cal_ch2_part2b,psd_cal_ch2_2cto3) 
+psd_med_ch2 = bind_rows(psd_med_ch2_part1to2a, psd_med_ch2_part2b,psd_med_ch2_2cto3)
+rm(psd_cal_ch2_part1to2a, psd_cal_ch2_part2b,psd_cal_ch2_2cto3) 
+rm(psd_med_ch2_part1to2a, psd_med_ch2_part2b,psd_med_ch2_2cto3)
+
+save(psd_cal_ch2, file = './data_20180930/rdata/psd_cal_ch2.Rdata')
+save(psd_med_ch2, file = './data_20180930/rdata/psd_med_ch2.Rdata')
+
+psd_cal_ch3 = bind_rows(psd_cal_ch3_part1to2a, psd_cal_ch3_part2b,psd_cal_ch3_2cto3) 
+psd_med_ch3 = bind_rows(psd_med_ch3_part1to2a, psd_med_ch3_part2b,psd_med_ch3_2cto3)
+
+save(psd_cal_ch3, file = './data_20180930/rdata/psd_cal_ch3.Rdata')
+rm(psd_cal_ch3_part1to2a, psd_cal_ch3_part2b,psd_cal_ch3_2cto3) 
+
+save(psd_med_ch3, file = './data_20180930/rdata/psd_med_ch3.Rdata')
+rm(psd_med_ch3_part1to2a, psd_med_ch3_part2b,psd_med_ch3_2cto3)
+
+psd_cal_ch4 = bind_rows(psd_cal_ch4_part1to2a, psd_cal_ch4_part2b,psd_cal_ch4_2cto3) 
+psd_med_ch4 = bind_rows(psd_med_ch4_part1to2a, psd_med_ch4_part2b,psd_med_ch4_2cto3)
+
+save(psd_cal_ch4, file = './data_20180930/rdata/psd_cal_ch4.Rdata')
+rm(psd_cal_ch4_part1to2a, psd_cal_ch4_part2b,psd_cal_ch4_2cto3) 
+
+save(psd_med_ch4, file = './data_20180930/rdata/psd_med_ch4.Rdata')
+rm(psd_med_ch4_part1to2a, psd_med_ch4_part2b,psd_med_ch4_2cto3)
+
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.

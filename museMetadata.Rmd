@@ -1,0 +1,99 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+#library(tidyr)
+```
+# Reading in meta-data. 
+```{r set path names; get files names; read metadata, echo = FALSE  }
+datapath = './data_20180930/'
+file_subjdetails <- list.files(datapath, pattern="*metadata.csv", recursive = TRUE, full.names = TRUE)
+
+subjdets <- as_tibble(read.csv(file_subjdetails))
+print(paste('found ', file_subjdetails, 'metadata file with', dim(subjdets)[1], ' entries'))
+
+#with(subjdets, tapply(session_id, list(age_group, gender), length))/25
+
+```
+
+How much did people meditate and over how long? 
+- look at days from first session
+- 
+
+```{r get daysSinceFirst}
+subjdets$session_id = as.character(subjdets$session_id)
+
+subjdets = subjdets%>%
+  group_by(user_id)%>%
+  mutate(sessOrder = rank(session_timestamp), 
+         sessDate = as.Date(as.POSIXct(session_timestamp, origin = "1970-01-01")), 
+         sessDaysSince1st = as.numeric(difftime(sessDate, sessDate[sessOrder == 1],units = "days")), 
+         sessDaySincePrev = c(diff(sessDate),0))%>%
+  arrange(user_id, sessOrder)
+
+ggplot(subjdets)+
+  geom_line(aes(x = sessOrder, y = sessDaysSince1st, col = user_id))+guides(colour = FALSE)+
+  ggtitle('days from first session')
+
+
+ggplot(subjdets)+
+  geom_point(aes(x = sessOrder, y = sessDaySincePrev, col = user_id))+guides(colour = FALSE)+
+  ggtitle('difference in days from previous')
+
+```
+Excluding those with less than 25 sessions
+with time from first to last session of more than 6 months
+and with gap between consequtive sessions of more than 2 months. 
+
+```{r determine which subj to exclude}
+smrSessions = subjdets%>%
+  group_by(user_id, age_group, age)%>%
+  summarise(nSessions = max(sessOrder), 
+            maxDaysSince1st = max(sessDaysSince1st),
+            maxSessDaySincePrev = max(sessDaySincePrev), 
+            aveSessDuration = mean(completed_seconds))
+
+cleanerSubset = smrSessions%>%
+  dplyr::filter(nSessions>=25)%>%
+  dplyr::filter(maxDaysSince1st<365/2)%>%
+  dplyr::filter(maxSessDaySincePrev<60)
+  
+includeSubj = as.character(unique(cleanerSubset$user_id))
+
+length(includeSubj)
+
+ggplot(subset(subjdets, user_id%in%includeSubj))+
+  geom_line(aes(x = sessOrder, y = sessDaysSince1st, col = user_id))+guides(colour = FALSE)+
+  ggtitle('days from first session')+facet_wrap(~age_group)
+
+ggplot(subset(subjdets, user_id%in%includeSubj))+
+  geom_line(aes(x = sessOrder, y = sessDaySincePrev, col = user_id))+guides(colour = FALSE)+
+  ggtitle('days from first session')+facet_wrap(~age_group)
+
+cleanSubj.df = subset(subjdets, user_id%in%includeSubj)
+
+```
+# load psds and merge
+
+
+
+<!-- ```{r} -->
+<!-- #ggplot(data = subjdets)+ -->
+<!--  # geom_boxplot(aes(x = age_group, y = completed_seconds)) -->
+<!-- ``` -->
+
+
+
+
+
+
+
+
+
+
