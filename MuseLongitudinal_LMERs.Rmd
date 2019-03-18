@@ -1,0 +1,409 @@
+---
+title: "LMER Muse longitudinal analyses"
+author: "Eugenie Roudaia"
+date: "March 17, 2019"
+output:
+  html_document:
+    toc: yes
+  html_notebook:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(lme4)
+library(lmerTest)
+library(pbkrtest)
+#library(devtools)
+#install.packages("digest")
+#devtools::install_github('bcjaeger/r2glmm')
+#library(r2glmm)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r load data}
+load("~/github/muse_longitudinal/lmers/fooof_wMeta_ch1ch4_long_fixed.RData", verbose = TRUE)
+```
+
+## looking at fooof parameters
+
+```{r}
+ggplot(fooof_ch1_hasAlpha, aes(x = age, y = err))+
+  geom_point()
+
+ggplot(fooof_ch1_hasAlpha, aes(x = age, y = r2))+
+  geom_point()
+
+
+quantile(fooof_ch1_hasAlpha$err, c(0.05, 0.95))
+
+```
+### Will be excluding all estimates that have an error > 0.2 and r2 < 0.7 (totally random cutoffs.. need better ones 
+
+### Check to see how many estimates each session has. 
+
+```{r}
+
+cnts =fooof_ch1_hasAlpha %>%
+  group_by(session_id, type, user_id, gender, age, age_group, sessOrder)%>%
+  summarise(n_int = length(bg_int), 
+            n_slope = length(bg_slope),
+            n_pk_freq = length(pk_freq))
+
+
+cnts =fooof_ch4_hasAlpha %>%
+  group_by(session_id, type, user_id, gender, age, age_group, sessOrder)%>%
+  summarise(n_int = length(bg_int), 
+            n_slope = length(bg_slope),
+            n_pk_freq = length(pk_freq))
+
+
+summary(cnts)
+```
+
+i.e. we have multiple estimates per session (probably more than one epoch analyzed)
+
+### Look at both channels after removing bad fits
+```{r}
+
+fooof_ch4_hasAlpha$channel = 'Right'
+fooof_ch1_hasAlpha$channel = 'Left'
+fooof_ch14_hasAlpha = rbind(fooof_ch1_hasAlpha, fooof_ch4_hasAlpha)
+unique(fooof_ch14_hasAlpha$channel)
+
+OKfits = fooof_ch14_hasAlpha%>%
+  dplyr::filter(r2>0.8 & err<0.15)
+
+ggplot(OKfits, aes(x = age, y = r2))+
+  geom_point()
+
+ggplot(OKfits, aes(x = age, y = err))+
+  geom_point()
+
+ggplot(OKfits, aes(x = age_group , y = bg_int, col = channel))+
+  geom_boxplot(position = position_dodge(width = 0.3))
+
+ggplot(OKfits, aes(x = age_group , y = bg_slope, col = channel))+
+  geom_boxplot(position = position_dodge(width = 0.3))
+
+ggplot(OKfits, aes(x = age_group , y = pk_freq, col = channel))+
+  geom_boxplot(position = position_dodge(width = 0.3))
+
+ggplot(OKfits, aes(x = age_group , y = pk_amp, col = channel))+
+  geom_boxplot(position = position_dodge(width = 0.3))
+
+```
+
+Will analyze channels separately.. 
+
+# FOOOF lmer setup
+
+fooof_ch1_hasAlpha: 
+"session_id"          "bg_int"              "bg_slope"            "pk_freq"            
+ [5] "pk_amp"              "pk_bw"               "r2"                  "err"                
+ [9] "type"                "channel"             "X"                   "user_id"            
+[13] "session_timestamp"   "completed_seconds"   "year_of_birth"       "gender"             
+[17] "handedness"          "total_session_count" "total_musing_time"   "bird_count"         
+[21] "recovery_count"      "seconds_calm"        "active_days"         "avg_sess_per_month" 
+[25] "age"                 "age_group"           "sessOrder"           "sessDate"           
+[29] "sessDaysSince1st"    "sessDaySincePrev"   
+
+## centre my variables and do contr.sum coding
+```{r}
+options(contrasts = c("contr.sum", "contr.poly"))
+
+# center sessOrder on session 15
+OKfits_c = OKfits%>%
+  mutate(sessOrder = sessOrder - 12)
+OKfits_c$handedness =  factor(OKfits_c$handedness, levels = c("left", "mostly_left", "ambidextrous", "none", "mostly_right", "right"))
+
+
+```
+
+# by-user intercept LMERs, meditation only. 
+with by-user intercepts and main effects of age, gender, sessOrder,  
+their two-way interactions, and three-way with sessOrder:age:gender
+
+
+## med, each channel - Bg Intercept
+```{r, echo = TRUE}
+
+int_i = lmer(bg_int ~ age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                 +(1|user_id), data = subset(OKfits_c, type == "med" & channel == "Left"))
+#summary(int_i)
+anova(int_i)
+
+int_i = lmer(bg_int ~ age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                 +(1|user_id), data = subset(OKfits_c, type == "med" & channel == "Right"))
+#summary(int_i)
+anova(int_i)
+```
+
+# med, each channel - Bg Slope
+```{r}
+bg_slope_i = lmer(bg_slope ~age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                 +(1|user_id), data = subset(OKfits_c, type == "med" & channel == "Left"))
+anova(bg_slope_i)
+#summary(bg_slope_i)
+
+
+bg_slope_i = lmer(bg_slope ~age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                 +(1|user_id), data = subset(OKfits_c, type == "med" & channel == "Right"))
+anova(bg_slope_i)
+#summary(bg_slope_i)
+
+```
+
+# med, each channel - Peak Freq
+```{r}
+pk_freq_i = lmer(pk_freq ~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                 +(1|user_id), data = subset(OKfits_c, type == "med" & channel == "Left"))
+anova(pk_freq_i)
+#summary(pk_freq_i)
+
+pk_freq_i = lmer(pk_freq ~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                 +(1|user_id), data = subset(OKfits_c, type == "med" & channel == "Right"))
+anova(pk_freq_i)
+#summary(pk_freq_i)
+```
+
+
+# med, each channel - Peak Ampli
+```{r}
+
+pk_amp_i = lmer(pk_amp ~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                 +(1|user_id), data = subset(OKfits_c, type == "med" & channel == "Left"))
+anova(pk_amp_i)
+pk_amp_i = lmer(pk_amp ~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                 +(1|user_id), data = subset(OKfits_c, type == "med" & channel == "Right"))
+anova(pk_amp_i)
+#summary(pk_amp_i)
+
+
+
+```
+
+# med, each channel - Peak BWD
+```{r}
+pk_bw_i = lmer(pk_bw~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), data = subset(OKfits_c, type == "med" & channel == "Left"))
+anova(pk_bw_i)
+pk_bw_i = lmer(pk_bw~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), data = subset(OKfits_c, type == "med" & channel == "Right"))
+anova(pk_bw_i)
+#summary(pk_bw_i)
+
+```
+
+# LMER for band power and PAA/PAF in ch1
+## loading data and setup
+```{r setting up data frame}
+load("~/github/muse_longitudinal/Muse classic bands/psd_freqBandAve_all.Rdata")
+
+names(bnds_psd_ch1)
+
+bnds_psd_ch1 = bnds_psd_ch1%>%
+  mutate(sessOrder = sessOrder - 12)
+bnds_psd_ch4 = bnds_psd_ch4%>%
+  mutate(sessOrder = sessOrder - 12)
+
+bnds_psd_ch1$handedness =  factor(bnds_psd_ch1$handedness, levels = c("left", "mostly_left", "ambidextrous", "none", "mostly_right", "right"))
+bnds_psd_ch4$handedness =  factor(bnds_psd_ch4$handedness, levels = c("left", "mostly_left", "ambidextrous", "none", "mostly_right", "right"))
+
+summary(bnds_psd_ch4)
+
+
+load("~/github/muse_longitudinal/lmers/eAve_psd_med_ch1_withPAF.RData", verbose = TRUE)
+
+peakAlpha_med_ch1 = eAve_psd_med_ch1%>%
+  group_by(session_id, user_id, gender, handedness, age, age_group, sessOrder, type)%>%
+  summarise(PAF = mean(PAF), 
+            PAA = mean(PAA))%>%
+  ungroup()%>%
+  mutate(sessOrder = sessOrder - 12)
+  
+# no PAF or PAA in ch4
+
+# selectCols  = c("session_id",
+#   "user_id.x",
+#   "gender.x",
+#   "handedness.x",
+#   "age.x",
+#   "age_group.x",
+#   "sessOrder.x" ,
+#   "sessDaysSince1st.x",
+#    "type" ,              "freq"   ,            "log10powM",       
+#  "log10powSD" )
+# 
+# renameCols  = c("session_id",
+#   "user_id",
+#   "gender",
+#   "handedness",
+#   "age",
+#   "age_group",
+#   "sessOrder" ,
+#   "sessDaysSince1st",
+#    "type" ,              "freq"   ,            "log10powM",       
+#  "log10powSD" )
+# eAve_psd_med_ch4 = eAve_psd_med_ch4[,selectCols]
+# names(eAve_psd_med_ch4) = renameCols
+# peakAlpha_med_ch4 = eAve_psd_med_ch4%>%
+#   group_by(session_id, user_id, gender, handedness, age, age_group, sessOrder, type)%>%
+#   summarise(PAF = mode(PAF), 
+#             PAA = mode(PAA))%>%
+#   ungroup()%>%
+#   mutate(sessOrder = sessOrder - 12)
+# 
+#   summary(peakAlpha_med_ch4)
+
+```
+
+### band ranges
++ deltaBand = c[1,4)
++ thetaBand = c[4,8)
++ alphaBand = c[8,13)
++ betaBand = c[14,30)  exluding noiseBand = c(20,23)
++ gammaBand = c[34,42)
+
+
+## delta
+```{r}
+curBand = 'delta'
+
+print('Left Channel')
+lmerObj = lmer(log10pow_M~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), 
+               data = subset(bnds_psd_ch1, type == "med" & freqBand == curBand))
+anova(lmerObj)
+
+print('RIGHT Channel')
+lmerObj = lmer(log10pow_M~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), 
+               data = subset(bnds_psd_ch4, type == "med" & freqBand == curBand))
+anova(lmerObj)
+
+```
+
+## theta
+```{r}
+curBand = 'theta'
+
+print('Left Channel')
+lmerObj = lmer(log10pow_M~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), 
+               data = subset(bnds_psd_ch1, type == "med" & freqBand == curBand))
+anova(lmerObj)
+
+print('RIGHT Channel')
+lmerObj = lmer(log10pow_M~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), 
+               data = subset(bnds_psd_ch4, type == "med" & freqBand == curBand))
+anova(lmerObj)
+
+```
+
+## alpha
+```{r}
+curBand = 'alpha'
+
+print('Left Channel')
+lmerObj = lmer(log10pow_M~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), 
+               data = subset(bnds_psd_ch1, type == "med" & freqBand == curBand))
+anova(lmerObj)
+
+print('RIGHT Channel')
+lmerObj = lmer(log10pow_M~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), 
+               data = subset(bnds_psd_ch4, type == "med" & freqBand == curBand))
+anova(lmerObj)
+
+```
+
+
+## peak alpha frequency
+
+```{r}
+
+print('Left Channel')
+lmerObj = lmer(PAF~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), 
+               data = subset(peakAlpha_med_ch1, type == "med"))
+anova(lmerObj)
+
+```
+
+## power at peak alpha frequency
+
+```{r}
+print('Left Channel')
+lmerObj = lmer(PAA~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), 
+               data = subset(peakAlpha_med_ch1, type == "med"))
+anova(lmerObj)
+
+```
+
+## beta
+```{r}
+curBand = 'beta'
+
+print('Left Channel')
+lmerObj = lmer(log10pow_M~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), 
+               data = subset(bnds_psd_ch1, type == "med" & freqBand == curBand))
+anova(lmerObj)
+
+print('RIGHT Channel')
+lmerObj = lmer(log10pow_M~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), 
+               data = subset(bnds_psd_ch4, type == "med" & freqBand == curBand))
+anova(lmerObj)
+
+```
+
+## gamma
+```{r}
+curBand = 'gamma'
+
+print('Left Channel')
+lmerObj = lmer(log10pow_M~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), 
+               data = subset(bnds_psd_ch1, type == "med" & freqBand == curBand))
+anova(lmerObj)
+
+print('RIGHT Channel')
+lmerObj = lmer(log10pow_M~  age + gender + age:gender+
+                sessOrder + sessOrder:age + sessOrder:gender+sessOrder:age:gender+
+                  +(1|user_id), 
+               data = subset(bnds_psd_ch4, type == "med" & freqBand == curBand))
+anova(lmerObj)
+
+```
+
+
